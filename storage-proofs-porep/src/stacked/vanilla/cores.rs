@@ -14,7 +14,12 @@ lazy_static! {
         let num_producers = &SETTINGS.multicore_sdr_producers;
         let cores_per_unit = num_producers + 1;
 
-        core_units(cores_per_unit)
+        let skip_one = &SETTINGS.multicore_sdr_skip_one + 0;
+        let skip_two = &SETTINGS.multicore_sdr_skip_two + 0;
+        let skip_three = &SETTINGS.multicore_sdr_skip_three + 0;
+        let skip_four = &SETTINGS.multicore_sdr_skip_four + 0;
+
+        core_units(cores_per_unit, skip_one, skip_two, skip_three, skip_four)
     };
 }
 
@@ -216,7 +221,7 @@ fn get_shared_cache_count(topo: &Topology, depth: u32, core_count: usize) -> usi
     1
 }
 
-fn core_units(cores_per_unit: usize) -> Option<Vec<Mutex<CoreUnit>>> {
+fn core_units(cores_per_unit: usize, skip_one: usize, skip_two: usize, skip_three: usize, skip_four: usize) -> Option<Vec<Mutex<CoreUnit>>> {
     let topo = TOPOLOGY.lock().expect("poisoned lock");
 
     // At which depths the cores within one package are. If you think of the "depths" as a
@@ -239,11 +244,19 @@ fn core_units(cores_per_unit: usize) -> Option<Vec<Mutex<CoreUnit>>> {
 
     // The list of units the multicore SDR threads can be bound to.
     let core_units = create_core_units(core_count, group_count, cores_per_unit);
+
     Some(
         core_units
             .iter()
+            .filter(|unit|
+                !unit.split_first().unwrap().0.eq(&skip_one) &&
+                !unit.split_first().unwrap().0.eq(&skip_two) &&
+                !unit.split_first().unwrap().0.eq(&skip_three) &&
+                !unit.split_first().unwrap().0.eq(&skip_four)
+            )
             .map(|unit| {
                 let unit_core_index = unit.iter().map(|core| CoreIndex(*core)).collect();
+                println!("{:?}", unit_core_index);
                 Mutex::new(unit_core_index)
             })
             .collect::<Vec<_>>(),
@@ -257,7 +270,8 @@ mod tests {
     #[test]
     fn test_cores() {
         fil_logger::maybe_init();
-        core_units(2);
+        let a = core_units(2, 0, 2, 10000, 10000);
+        println!("{:?}", a)
     }
 
     #[test]
